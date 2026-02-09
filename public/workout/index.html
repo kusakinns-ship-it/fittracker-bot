@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>FitTracker</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --tg-bg: var(--tg-theme-bg-color, #1a1a2e);
+            --tg-text: var(--tg-theme-text-color, #ffffff);
+            --tg-hint: var(--tg-theme-hint-color, #7c7c7c);
+            --tg-button: var(--tg-theme-button-color, #3b82f6);
+            --tg-button-text: var(--tg-theme-button-text-color, #ffffff);
+        }
+        
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-bg);
+            color: var(--tg-text);
+            min-height: 100vh;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .card-active {
+            border: 2px solid var(--tg-button);
+        }
+        
+        .card-done {
+            border: 1px solid #10b981;
+            opacity: 0.8;
+        }
+        
+        .set-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .set-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .set-done {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .set-current {
+            background: linear-gradient(135deg, #3b82f6, #2563eb);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        .set-pending {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--tg-hint);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+            50% { box-shadow: 0 0 0 8px rgba(59, 130, 246, 0); }
+        }
+        
+        .bottom-sheet {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #1e1e3f;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            padding-bottom: calc(20px + env(safe-area-inset-bottom));
+            transform: translateY(100%);
+            transition: transform 0.3s ease-out;
+            z-index: 100;
+        }
+        
+        .bottom-sheet.open {
+            transform: translateY(0);
+        }
+        
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 99;
+        }
+        
+        .overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 12px;
+            color: var(--tg-text);
+            font-size: 18px;
+            text-align: center;
+        }
+        
+        .input-field:focus {
+            outline: 2px solid var(--tg-button);
+        }
+        
+        .btn-primary {
+            width: 100%;
+            padding: 16px;
+            background: var(--tg-button);
+            color: var(--tg-button-text);
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .btn-primary:active {
+            opacity: 0.8;
+        }
+        
+        .rpe-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        
+        .rpe-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .rpe-btn.selected {
+            outline: 2px solid white;
+        }
+        
+        .timer {
+            font-family: 'SF Mono', monospace;
+            font-size: 32px;
+            font-weight: bold;
+            color: var(--tg-button);
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top-color: var(--tg-button);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .no-workout {
+            text-align: center;
+            padding: 40px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+    </div>
+
+    <script>
+        // =============================================
+        // TELEGRAM INIT
+        // =============================================
+        const tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let currentWorkout = null;
+        let currentExerciseIndex = 0;
+        let timerInterval = null;
+        let timerSeconds = 0;
+        
+        if (tg) {
+            tg.ready();
+            tg.expand();
+            tg.enableClosingConfirmation();
+            
+            // Применяем тему
+            document.documentElement.style.setProperty('--tg-bg', tg.themeParams.bg_color || '#1a1a2e');
+            document.documentElement.style.setProperty('--tg-text', tg.themeParams.text_color || '#ffffff');
+            document.documentElement.style.setProperty('--tg-hint', tg.themeParams.hint_color || '#7c7c7c');
+            document.documentElement.style.setProperty('--tg-button', tg.themeParams.button_color || '#3b82f6');
+            
+            currentUser = tg.initDataUnsafe?.user;
+        }
+        
+        const API_URL = window.location.origin + '/api';
+        
+        // =============================================
+        // API
+        // =============================================
+        async function fetchWorkout() {
+            if (!currentUser) {
+                showNoWorkout('Не удалось получить данные пользователя');
+                return;
+            }
+            
+            try {
+                // Сначала получаем user_id по telegram_id
+                const userRes = await fetch(`${API_URL}/user/${currentUser.id}`);
+                if (!userRes.ok) throw new Error('User not found');
+                const user = await userRes.json();
+                
+                // Затем получаем тренировку
+                const workoutRes = await fetch(`${API_URL}/workout/${user.id}`);
+                if (!workoutRes.ok) throw new Error('No workout');
+                
+                currentWorkout = await workoutRes.json();
+                renderWorkout();
+            } catch (error) {
+                console.error('Error fetching workout:', error);
+                showNoWorkout('На сегодня тренировок нет');
+            }
+        }
+        
+        async function saveSet(exerciseId, setNumber, data) {
+            try {
+                const res = await fetch(`${API_URL}/workout/set`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        workout_exercise_id: exerciseId,
+                        set_number: setNumber,
+                        ...data
+                    })
+                });
+                
+                if (tg) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                }
+                
+                return await res.json();
+            } catch (error) {
+                console.error('Error saving set:', error);
+                if (tg) {
+                    tg.HapticFeedback.notificationOccurred('error');
+                }
+            }
+        }
+        
+        async function completeWorkout(feedback, rpe) {
+            try {
+                await fetch(`${API_URL}/workout/${currentWorkout.id}/complete`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        client_feedback: feedback,
+                        overall_rpe: rpe
+                    })
+                });
+                
+                if (tg) {
+                    tg.HapticFeedback.notificationOccurred('success');
+                    tg.showAlert('Тренировка завершена! 💪', () => {
+                        tg.close();
+                    });
+                }
+            } catch (error) {
+                console.error('Error completing workout:', error);
+            }
+        }
+        
+        // =============================================
+        // RENDER
+        // =============================================
+        function showNoWorkout(message) {
+            document.getElementById('app').innerHTML = `
+                <div class="no-workout">
+                    <div style="font-size: 64px; margin-bottom: 20px;">🏋️</div>
+                    <h2 style="margin-bottom: 12px;">${message}</h2>
+                    <p style="color: var(--tg-hint);">Твой тренер скоро назначит тренировку</p>
+                </div>
+            `;
+        }
+        
+        function renderWorkout() {
+            const exercises = currentWorkout.workout_exercises || [];
+            
+            // Находим текущее упражнение (первое незавершённое)
+            currentExerciseIndex = exercises.findIndex(ex => !ex.completed);
+            if (currentExerciseIndex === -1) currentExerciseIndex = exercises.length - 1;
+            
+            let html = `
+                <header style="padding: 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <h1 style="font-size: 18px; margin: 0;">${currentWorkout.day_name || 'Тренировка'}</h1>
+                            <p style="color: var(--tg-hint); font-size: 14px; margin: 4px 0 0;">
+                                Неделя ${currentWorkout.week_number || '?'}
+                            </p>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 24px; font-weight: bold; color: var(--tg-button);">
+                                ${currentExerciseIndex + 1}/${exercises.length}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+                
+                <main style="padding: 16px; padding-bottom: 100px;">
+            `;
+            
+            exercises.forEach((ex, index) => {
+                const exercise = ex.exercise || {};
+                const sets = ex.workout_sets || [];
+                const completedSets = sets.filter(s => s.completed).length;
+                const totalSets = ex.planned_sets || sets.length;
+                const isActive = index === currentExerciseIndex;
+                const isDone = ex.completed || completedSets === totalSets;
+                
+                html += `
+                    <div class="card ${isActive ? 'card-active' : ''} ${isDone ? 'card-done' : ''}" 
+                         data-exercise-index="${index}">
+                        <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                            <div>
+                                ${isDone ? '<span style="color: #10b981; font-size: 12px;">✓ ВЫПОЛНЕНО</span>' : 
+                                  isActive ? '<span style="color: var(--tg-button); font-size: 12px;">▶ СЕЙЧАС</span>' : ''}
+                                <h3 style="font-size: 16px; margin: 4px 0 0;">${index + 1}. ${exercise.name || 'Упражнение'}</h3>
+                                <p style="color: var(--tg-hint); font-size: 14px; margin: 4px 0 0;">
+                                    ${ex.planned_weight || '?'} кг × ${ex.planned_reps || '?'} × ${totalSets}
+                                </p>
+                            </div>
+                        </div>
+                `;
+                
+                if (isActive) {
+                    // Подходы
+                    html += `<div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;">`;
+                    
+                    for (let i = 0; i < totalSets; i++) {
+                        const set = sets[i] || {};
+                        const isCurrent = i === completedSets;
+                        const setDone = set.completed;
+                        
+                        html += `
+                            <button class="set-btn ${setDone ? 'set-done' : isCurrent ? 'set-current' : 'set-pending'}"
+                                    onclick="openSetInput('${ex.id}', ${i + 1}, ${ex.planned_weight || 0}, ${parseInt(ex.planned_reps) || 0})">
+                                <span>${setDone ? (set.actual_reps || '✓') : isCurrent ? '?' : '—'}</span>
+                                ${setDone ? `<span style="font-size: 10px; opacity: 0.7;">${set.actual_weight || ''}</span>` : ''}
+                            </button>
+                        `;
+                    }
+                    
+                    html += `</div>`;
+                    
+                    // Таймер
+                    html += `
+                        <div style="display: flex; align-items: center; justify-content: space-between; 
+                                    background: rgba(255,255,255,0.05); padding: 12px; border-radius: 12px; margin-bottom: 12px;">
+                            <span style="color: var(--tg-hint);">⏱ Отдых</span>
+                            <span class="timer" id="timer">0:00</span>
+                            <button onclick="resetTimer()" 
+                                    style="background: rgba(255,255,255,0.1); border: none; padding: 8px 12px; 
+                                           border-radius: 8px; color: var(--tg-text); cursor: pointer;">
+                                Сброс
+                            </button>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            });
+            
+            html += `</main>`;
+            
+            // Bottom sheet для ввода подхода
+            html += `
+                <div class="overlay" id="overlay" onclick="closeBottomSheet()"></div>
+                <div class="bottom-sheet" id="setSheet">
+                    <div style="width: 40px; height: 4px; background: rgba(255,255,255,0.3); 
+                                border-radius: 2px; margin: 0 auto 16px;"></div>
+                    
+                    <h3 style="margin: 0 0 16px;">Подход <span id="setNumberLabel">1</span></h3>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; color: var(--tg-hint); font-size: 14px; margin-bottom: 8px;">
+                                Вес (кг)
+                            </label>
+                            <input type="number" id="inputWeight" class="input-field" inputmode="decimal">
+                        </div>
+                        <div>
+                            <label style="display: block; color: var(--tg-hint); font-size: 14px; margin-bottom: 8px;">
+                                Повторения
+                            </label>
+                            <input type="number" id="inputReps" class="input-field" inputmode="numeric">
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; color: var(--tg-hint); font-size: 14px; margin-bottom: 8px;">
+                            RPE (насколько тяжело)
+                        </label>
+                        <div style="display: flex; gap: 8px;" id="rpeButtons">
+                            <button class="rpe-btn" style="background: rgba(16,185,129,0.2); color: #10b981;" onclick="selectRPE(6)">6</button>
+                            <button class="rpe-btn" style="background: rgba(16,185,129,0.2); color: #10b981;" onclick="selectRPE(7)">7</button>
+                            <button class="rpe-btn" style="background: rgba(234,179,8,0.2); color: #eab308;" onclick="selectRPE(8)">8</button>
+                            <button class="rpe-btn" style="background: rgba(249,115,22,0.2); color: #f97316;" onclick="selectRPE(9)">9</button>
+                            <button class="rpe-btn" style="background: rgba(239,68,68,0.2); color: #ef4444;" onclick="selectRPE(10)">10</button>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; color: var(--tg-hint); font-size: 14px; margin-bottom: 8px;">
+                            Комментарий
+                        </label>
+                        <input type="text" id="inputComment" class="input-field" 
+                               placeholder="Как прошёл подход?" style="text-align: left;">
+                    </div>
+                    
+                    <button class="btn-primary" onclick="saveCurrentSet()">
+                        ✓ Сохранить подход
+                    </button>
+                </div>
+            `;
+            
+            document.getElementById('app').innerHTML = html;
+        }
+        
+        // =============================================
+        // INTERACTIONS
+        // =============================================
+        let currentSetData = { exerciseId: null, setNumber: 1, weight: 0, reps: 0 };
+        let selectedRPE = 8;
+        
+        function openSetInput(exerciseId, setNumber, weight, reps) {
+            currentSetData = { exerciseId, setNumber, weight, reps };
+            
+            document.getElementById('setNumberLabel').textContent = setNumber;
+            document.getElementById('inputWeight').value = weight;
+            document.getElementById('inputReps').value = reps;
+            document.getElementById('inputComment').value = '';
+            
+            // Сбрасываем RPE
+            selectedRPE = 8;
+            document.querySelectorAll('.rpe-btn').forEach((btn, i) => {
+                btn.classList.toggle('selected', i === 2);
+            });
+            
+            document.getElementById('overlay').classList.add('open');
+            document.getElementById('setSheet').classList.add('open');
+            
+            if (tg) {
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+        
+        function closeBottomSheet() {
+            document.getElementById('overlay').classList.remove('open');
+            document.getElementById('setSheet').classList.remove('open');
+        }
+        
+        function selectRPE(rpe) {
+            selectedRPE = rpe;
+            document.querySelectorAll('.rpe-btn').forEach((btn, i) => {
+                btn.classList.toggle('selected', (i + 6) === rpe);
+            });
+            
+            if (tg) {
+                tg.HapticFeedback.selectionChanged();
+            }
+        }
+        
+        async function saveCurrentSet() {
+            const weight = parseFloat(document.getElementById('inputWeight').value);
+            const reps = parseInt(document.getElementById('inputReps').value);
+            const comment = document.getElementById('inputComment').value;
+            
+            await saveSet(currentSetData.exerciseId, currentSetData.setNumber, {
+                actual_weight: weight,
+                actual_reps: reps,
+                rpe: selectedRPE,
+                comment: comment || null
+            });
+            
+            closeBottomSheet();
+            resetTimer();
+            startTimer();
+            
+            // Перезагружаем тренировку
+            await fetchWorkout();
+        }
+        
+        // =============================================
+        // TIMER
+        // =============================================
+        function startTimer() {
+            timerSeconds = 0;
+            updateTimerDisplay();
+            
+            timerInterval = setInterval(() => {
+                timerSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+        
+        function resetTimer() {
+            timerSeconds = 0;
+            updateTimerDisplay();
+        }
+        
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('timer');
+            if (timerEl) {
+                const mins = Math.floor(timerSeconds / 60);
+                const secs = timerSeconds % 60;
+                timerEl.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // =============================================
+        // INIT
+        // =============================================
+        fetchWorkout();
+    </script>
+</body>
+</html>
