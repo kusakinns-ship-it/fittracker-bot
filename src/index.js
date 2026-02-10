@@ -2,11 +2,16 @@ const express = require('express');
 const { Bot, InlineKeyboard } = require('grammy');
 
 const app = express();
+app.use(express.json());
+
+console.log('Starting app...');
+console.log('BOT_TOKEN exists:', !!process.env.TELEGRAM_BOT_TOKEN);
+console.log('WEBAPP_URL:', process.env.WEBAPP_URL);
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 
 bot.command('start', async (ctx) => {
-    console.log('START command received');
+    console.log('START from user:', ctx.from.id);
     const keyboard = new InlineKeyboard()
         .text('👤 Я клиент', 'role_client')
         .text('🏋️ Я тренер', 'role_trainer');
@@ -27,31 +32,35 @@ bot.callbackQuery('role_trainer', async (ctx) => {
     await ctx.editMessageText('Отлично! Ты тренер. Скоро тут будет функционал!');
 });
 
-// Webhook без middleware
-app.post('/webhook', (req, res) => {
-    console.log('Webhook hit');
-    let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', async () => {
-        try {
-            console.log('Body received:', body.substring(0, 100));
-            const update = JSON.parse(body);
-            await bot.handleUpdate(update);
-            res.sendStatus(200);
-        } catch (e) {
-            console.error('Webhook error:', e.message);
-            res.sendStatus(200);
-        }
-    });
+app.get('/', (req, res) => {
+    console.log('GET /');
+    res.send('FitTracker Bot OK');
 });
 
-app.get('/', (req, res) => res.send('FitTracker Bot is running'));
+app.post('/webhook', async (req, res) => {
+    console.log('POST /webhook received');
+    console.log('Body:', JSON.stringify(req.body).substring(0, 200));
+    try {
+        await bot.handleUpdate(req.body);
+        console.log('Update handled');
+        res.sendStatus(200);
+    } catch (err) {
+        console.error('Error handling update:', err.message);
+        res.sendStatus(200);
+    }
+});
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, async () => {
-    console.log('Server started on port', PORT);
-    const url = process.env.WEBAPP_URL + '/webhook';
-    console.log('Setting webhook to:', url);
-    await bot.api.setWebhook(url);
-    console.log('Webhook set successfully');
+console.log('Will listen on port:', PORT);
+
+app.listen(PORT, '0.0.0.0', async () => {
+    console.log(`Server running on 0.0.0.0:${PORT}`);
+    try {
+        const webhookUrl = `${process.env.WEBAPP_URL}/webhook`;
+        console.log('Setting webhook to:', webhookUrl);
+        await bot.api.setWebhook(webhookUrl);
+        console.log('Webhook set OK');
+    } catch (err) {
+        console.error('Webhook error:', err.message);
+    }
 });
