@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const { Bot, InlineKeyboard } = require('grammy');
 const { createClient } = require('@supabase/supabase-js');
-const OpenAI = require('openai');
+const Groq = require('groq-sdk');
 
 const app = express();
 app.use(express.json());
@@ -13,13 +13,12 @@ const supabase = createClient(
     process.env.SUPABASE_KEY
 );
 
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
 });
 
 const bot = new Bot(process.env.TELEGRAM_BOT_TOKEN);
 
-// /start
 bot.command('start', async (ctx) => {
     console.log('START from', ctx.from.id);
     
@@ -43,16 +42,11 @@ bot.command('start', async (ctx) => {
         .webApp('🏋️ Открыть FitTracker', process.env.WEBAPP_URL);
     
     await ctx.reply(
-        `Привет, ${ctx.from.first_name}! 👋\n\n` +
-        `Добро пожаловать в FitTracker — помощник для фитнес-тренеров.\n\n` +
-        `Нажми кнопку ниже:`,
+        `Привет, ${ctx.from.first_name}! 👋\n\nДобро пожаловать в FitTracker.\n\nНажми кнопку ниже:`,
         { reply_markup: keyboard }
     );
 });
 
-// ============ API ============
-
-// Получить пользователя
 app.get('/api/user/:telegramId', async (req, res) => {
     const { data, error } = await supabase
         .from('users')
@@ -64,7 +58,6 @@ app.get('/api/user/:telegramId', async (req, res) => {
     res.json(data);
 });
 
-// Получить клиентов тренера
 app.get('/api/clients/:trainerId', async (req, res) => {
     const { data } = await supabase
         .from('trainer_clients')
@@ -76,7 +69,6 @@ app.get('/api/clients/:trainerId', async (req, res) => {
     res.json(data || []);
 });
 
-// Создать клиента
 app.post('/api/clients', async (req, res) => {
     const { trainer_id, client_name, goal, notes } = req.body;
     
@@ -90,7 +82,6 @@ app.post('/api/clients', async (req, res) => {
     res.json(data);
 });
 
-// Получить программу клиента
 app.get('/api/program/:clientId', async (req, res) => {
     const { data, error } = await supabase
         .from('programs')
@@ -103,146 +94,102 @@ app.get('/api/program/:clientId', async (req, res) => {
     res.json(data);
 });
 
-// Парсинг программы через OpenAI
 app.post('/api/parse-program', async (req, res) => {
     const { client_id, text } = req.body;
+    
+    console.log('=== PARSE PROGRAM ===');
+    console.log('Client ID:', client_id);
     
     if (!text) {
         return res.status(400).json({ error: 'Text required' });
     }
     
     try {
-        const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+        const completion = await groq.chat.completions.create({
+            model: 'llama-3.1-70b-versatile',
             messages: [
                 {
                     role: 'system',
-                    content: `Ты парсер программ тренировок. Преобразуй текст программы в JSON.
+                    content: `Ты парсер программ тренировок. Преобразуй текст в JSON.
 
-Формат ответа (строго JSON, без markdown):
+Формат ответа (ТОЛЬКО JSON, без markdown, без \`\`\`):
 {
   "name": "Название программы",
   "days_per_week": 3,
   "days": [
     {
       "name": "День 1 - Присед",
-      "day_of_week": 1,
       "exercises": [
         {
           "name": "Приседания со штангой",
           "sets": 5,
           "reps": "5",
           "weight": 100,
-          "rest": "3 мин",
-          "tempo": null,
-          "notes": null
+          "rest": "3 мин"
         }
       ]
     }
   ]
 }
 
-Правила парсинга:
-- "100×5×5" или "100 5х5" = вес 100кг, 5 повторений, 5 подходов
-- "5×5" без веса = 5 повторений, 5 подходов, вес null
-- "8-12" в повторениях = записать как "8-12"
-- Если есть эмодзи дней (📅), разбивай по дням
-- Если нет явного разделения на дни — создай один день
-- Названия упражнений приводи к нормальному виду
-- Отвечай ТОЛЬКО JSON, без пояснений`
+Правила:
+- "100×5×5" или "100x5x5" = вес 100, 5 повторений, 5 подходов
+- "5×5" без веса = 5 повторений, 5 подходов, weight: null
+- Отвечай ТОЛЬКО валидным JSON`
                 },
                 {
                     role: 'user',
                     content: text
                 }
             ],
-            temperature: 0.1
+            temperature: 0.1,
+            max_tokens: 2000
         });
         
         let jsonStr = completion.choices[0].message.content;
+        console.log('Groq response:', jsonStr.substring(0, 300));
         
-        // Убираем markdown если есть
         jsonStr = jsonStr.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
         
         const program = JSON.parse(jsonStr);
+        console.log('Parsed:', program.name);
         
-        // Сохраняем в базу
-        const { data: savedProgram, error } = await supabase
+        await supabase
             .from('programs')
-            .upsert({
+            .update({ is_active: false })
+            .eq('client_id', client_id);
+        
+        const { data: saved, error: saveError } = await supabase
+            .from('programs')
+            .insert({
                 client_id: client_id,
                 name: program.name || 'Программа',
                 days_per_week: program.days_per_week || program.days?.length || 1,
                 days: program.days || [],
                 is_active: true
-            }, {
-                onConflict: 'client_id',
-                ignoreDuplicates: false
             })
             .select()
             .single();
         
-        if (error) {
-            console.error('DB error:', error);
-            // Если ошибка — пробуем insert
-            const { data: insertedProgram, error: insertError } = await supabase
-                .from('programs')
-                .insert({
-                    client_id: client_id,
-                    name: program.name || 'Программа',
-                    days_per_week: program.days_per_week || program.days?.length || 1,
-                    days: program.days || [],
-                    is_active: true
-                })
-                .select()
-                .single();
-            
-            if (insertError) {
-                return res.status(500).json({ error: insertError.message });
-            }
-            return res.json(insertedProgram);
+        if (saveError) {
+            console.error('DB error:', saveError);
+            return res.status(500).json({ error: saveError.message });
         }
         
-        res.json(savedProgram);
+        console.log('Saved, ID:', saved.id);
+        res.json(saved);
         
     } catch (e) {
-        console.error('Parse error:', e);
+        console.error('Parse error:', e.message);
         res.status(500).json({ error: e.message });
     }
 });
 
-// Сохранить программу
-app.post('/api/program', async (req, res) => {
-    const { client_id, name, days_per_week, days } = req.body;
-    
-    // Деактивируем старые программы
-    await supabase
-        .from('programs')
-        .update({ is_active: false })
-        .eq('client_id', client_id);
-    
-    const { data, error } = await supabase
-        .from('programs')
-        .insert({
-            client_id,
-            name,
-            days_per_week,
-            days,
-            is_active: true
-        })
-        .select()
-        .single();
-    
-    if (error) return res.status(500).json({ error: error.message });
-    res.json(data);
-});
-
-// Webhook
 app.post('/webhook', async (req, res) => {
     try {
         await bot.handleUpdate(req.body);
     } catch (e) {
-        console.error('Error:', e.message);
+        console.error('Webhook error:', e.message);
     }
     res.send('OK');
 });
@@ -255,12 +202,9 @@ const PORT = process.env.PORT || 3000;
 
 async function start() {
     await bot.init();
-    console.log('Bot initialized:', bot.botInfo.username);
-    
+    console.log('Bot:', bot.botInfo.username);
     app.listen(PORT, () => console.log('Server on port', PORT));
-    
     await bot.api.setWebhook(process.env.WEBAPP_URL + '/webhook');
-    console.log('Webhook set');
 }
 
 start().catch(console.error);
