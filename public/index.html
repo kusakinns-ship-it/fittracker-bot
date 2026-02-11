@@ -2,11 +2,11 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>FitTracker</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         
         :root {
             --bg: var(--tg-theme-bg-color, #1a1a2e);
@@ -16,7 +16,6 @@
             --btn: var(--tg-theme-button-color, #3b82f6);
             --btn-text: var(--tg-theme-button-text-color, #ffffff);
             --green: #10b981;
-            --red: #ef4444;
         }
         
         body {
@@ -25,6 +24,8 @@
             color: var(--text);
             min-height: 100vh;
             padding-bottom: 100px;
+            -webkit-user-select: text;
+            user-select: text;
         }
         
         .page { display: none; padding: 16px; }
@@ -59,8 +60,8 @@
             margin-bottom: 12px;
         }
         
-        .card-clickable { cursor: pointer; transition: transform 0.1s; }
-        .card-clickable:active { transform: scale(0.98); }
+        .card-clickable { cursor: pointer; }
+        .card-clickable:active { opacity: 0.8; }
         
         .card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
         .card-subtitle { font-size: 14px; color: var(--hint); }
@@ -80,18 +81,32 @@
         .btn-secondary { background: var(--bg2); color: var(--text); }
         .btn-small { padding: 10px 16px; width: auto; font-size: 14px; }
         
-        .input {
+        .input, .textarea {
             width: 100%;
             padding: 14px;
-            border: none;
+            border: 2px solid transparent;
             border-radius: 12px;
             background: var(--bg2);
             color: var(--text);
             font-size: 16px;
             margin-bottom: 12px;
+            -webkit-appearance: none;
+            -webkit-user-select: text;
+            user-select: text;
         }
-        .input::placeholder { color: var(--hint); }
-        .input:focus { outline: 2px solid var(--btn); }
+        
+        .textarea {
+            min-height: 180px;
+            resize: none;
+            font-family: inherit;
+            line-height: 1.5;
+        }
+        
+        .input::placeholder, .textarea::placeholder { color: var(--hint); }
+        .input:focus, .textarea:focus { 
+            outline: none;
+            border-color: var(--btn);
+        }
         
         .label { font-size: 14px; color: var(--hint); margin-bottom: 6px; display: block; }
         
@@ -163,6 +178,8 @@
             border-radius: 20px 20px 0 0;
             padding: 20px;
             padding-bottom: 40px;
+            max-height: 85vh;
+            overflow-y: auto;
         }
         .modal-header {
             display: flex;
@@ -204,12 +221,13 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         
-        .info-box {
+        .hint-box {
             background: rgba(59,130,246,0.1);
             border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
-            font-size: 14px;
+            padding: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: var(--hint);
         }
     </style>
 </head>
@@ -234,11 +252,12 @@
         <div id="client-content"></div>
     </div>
     
-    <div class="modal" id="modal-add-client">
+    <!-- Модалка добавления клиента -->
+    <div class="modal" id="modal-client">
         <div class="modal-content">
             <div class="modal-header">
                 <span class="modal-title">Новый клиент</span>
-                <button class="close-btn" onclick="closeModal('modal-add-client')">×</button>
+                <button class="close-btn" onclick="closeModal('modal-client')">×</button>
             </div>
             <label class="label">Имя клиента *</label>
             <input type="text" class="input" id="input-client-name" placeholder="Иван Петров">
@@ -247,10 +266,39 @@
             <button class="btn btn-primary" onclick="saveClient()">Сохранить</button>
         </div>
     </div>
+    
+    <!-- Модалка программы -->
+    <div class="modal" id="modal-program">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Добавить программу</span>
+                <button class="close-btn" onclick="closeModal('modal-program')">×</button>
+            </div>
+            <div class="hint-box">
+                💡 Нажми на поле ниже, затем вставь текст программы (долгое нажатие → Вставить)
+            </div>
+            <label class="label">Текст программы</label>
+            <textarea 
+                class="textarea" 
+                id="input-program" 
+                placeholder="Вставьте сюда текст программы..."
+                autocomplete="off"
+                autocorrect="off"
+                autocapitalize="off"
+                spellcheck="false"
+            ></textarea>
+            <button class="btn btn-primary" onclick="parseProgram()">🤖 Распознать с ИИ</button>
+        </div>
+    </div>
 
     <script>
         const tg = window.Telegram?.WebApp;
-        if (tg) { tg.ready(); tg.expand(); }
+        if (tg) { 
+            tg.ready(); 
+            tg.expand();
+            // Разрешаем вертикальные свайпы для скролла
+            tg.enableClosingConfirmation();
+        }
         
         const API = window.location.origin + '/api';
         let currentUser = null;
@@ -303,7 +351,7 @@
                 : clients.map(c => `
                     <div class="card card-clickable" onclick="openClient('${c.id}')">
                         <div style="display:flex;justify-content:space-between;align-items:center">
-                            <div><div class="card-title">${c.client_name}</div><div class="card-subtitle">${c.goal || 'Цель не указана'}</div></div>
+                            <div><div class="card-title">${c.client_name}</div><div class="card-subtitle">${c.goal||'Цель не указана'}</div></div>
                             <span style="color:var(--hint)">→</span>
                         </div>
                     </div>`).join('');
@@ -332,13 +380,12 @@
                 if (!currentProgram) {
                     el.innerHTML = `
                         <div class="empty"><div class="empty-icon">📝</div><p>Программа не создана</p></div>
-                        <div class="info-box">📋 Сначала скопируй текст программы, потом нажми кнопку ниже</div>
-                        <button class="btn btn-primary" onclick="pasteProgram()">📋 Вставить из буфера</button>`;
+                        <button class="btn btn-primary" onclick="openProgramModal()">✍️ Добавить программу</button>`;
                 } else {
                     let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
                         <div><div style="font-weight:600">${currentProgram.name||'Программа'}</div>
                         <div style="font-size:14px;color:var(--hint)">${currentProgram.days_per_week||'?'} дней/нед</div></div>
-                        <button class="btn btn-secondary btn-small" onclick="pasteProgram()">✏️</button></div>`;
+                        <button class="btn btn-secondary btn-small" onclick="openProgramModal()">✏️</button></div>`;
                     
                     (currentProgram.days||[]).forEach((day,i) => {
                         html += `<div class="card day-card"><div class="card-title">${day.name||'День '+(i+1)}</div>`;
@@ -354,20 +401,33 @@
             } else if (currentTab === 'progress') {
                 el.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><p>Появится после тренировок</p></div>';
             } else {
-                el.innerHTML = '<button class="btn btn-primary" onclick="alert(\'Скоро\')">➕ Добавить замер</button><div class="empty"><div class="empty-icon">📏</div><p>Нет замеров</p></div>';
+                el.innerHTML = '<button class="btn btn-primary">➕ Добавить замер</button><div class="empty"><div class="empty-icon">📏</div><p>Нет замеров</p></div>';
             }
         }
         
-        async function pasteProgram() {
+        function openProgramModal() {
+            document.getElementById('input-program').value = '';
+            openModal('modal-program');
+            // Фокус на textarea с задержкой
+            setTimeout(() => {
+                const textarea = document.getElementById('input-program');
+                textarea.focus();
+                textarea.click();
+            }, 300);
+        }
+        
+        async function parseProgram() {
+            const text = document.getElementById('input-program').value.trim();
+            if (!text) {
+                tg?.showAlert('Вставь текст программы');
+                return;
+            }
+            
+            closeModal('modal-program');
+            
+            document.getElementById('client-content').innerHTML = '<div class="loading"><div class="spinner"></div></div><p style="text-align:center;color:var(--hint)">ИИ анализирует...</p>';
+            
             try {
-                const text = await navigator.clipboard.readText();
-                if (!text || text.length < 5) {
-                    tg?.showAlert('Сначала скопируй текст программы');
-                    return;
-                }
-                
-                document.getElementById('client-content').innerHTML = '<div class="loading"><div class="spinner"></div></div><p style="text-align:center;color:var(--hint)">ИИ анализирует...</p>';
-                
                 const res = await fetch(`${API}/parse-program`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -390,7 +450,7 @@
         function openAddClient() {
             document.getElementById('input-client-name').value = '';
             document.getElementById('input-client-goal').value = '';
-            openModal('modal-add-client');
+            openModal('modal-client');
         }
         
         async function saveClient() {
@@ -405,13 +465,27 @@
             });
             
             tg?.HapticFeedback.notificationOccurred('success');
-            closeModal('modal-add-client');
+            closeModal('modal-client');
             await loadClients();
             renderHome();
         }
         
-        function openModal(id) { document.getElementById(id).classList.add('open'); }
-        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+        function openModal(id) { 
+            document.getElementById(id).classList.add('open'); 
+            tg?.HapticFeedback.impactOccurred('light');
+        }
+        function closeModal(id) { 
+            document.getElementById(id).classList.remove('open'); 
+        }
+        
+        // Обработка вставки для iOS
+        document.addEventListener('paste', function(e) {
+            const textarea = document.getElementById('input-program');
+            if (document.activeElement === textarea) {
+                // Разрешаем стандартную вставку
+                return true;
+            }
+        });
         
         init();
     </script>
