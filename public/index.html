@@ -382,18 +382,16 @@
                 <span class="modal-title">Программа из текста</span>
                 <button class="close-btn" onclick="closeModal('modal-program-text')">×</button>
             </div>
-            <label class="label">Вставь программу тренировки</label>
-            <textarea class="textarea" id="input-program-text" style="min-height: 200px;" placeholder="📅 ПОНЕДЕЛЬНИК - ПРИСЕД
-1️⃣ Приседания со штангой
-100 × 5 × 5
-Отдых: 3 мин
-
-2️⃣ Жим ногами
-80 × 10 × 4
-Отдых: 2 мин"></textarea>
+            <label class="label">Вставьте текст программы</label>
+            <div 
+                id="input-program-text" 
+                contenteditable="true" 
+                class="textarea" 
+                style="min-height: 200px; overflow-y: auto; white-space: pre-wrap;"
+            ></div>
             <button class="btn btn-primary" onclick="parseProgram()">🤖 Распознать с ИИ</button>
         </div>
-    </div>
+       </div>
 
     <script>
         // ============ INIT ============
