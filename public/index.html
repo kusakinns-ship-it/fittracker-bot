@@ -252,7 +252,6 @@
         <div id="client-content"></div>
     </div>
     
-    <!-- Модалка добавления клиента -->
     <div class="modal" id="modal-client">
         <div class="modal-content">
             <div class="modal-header">
@@ -267,7 +266,6 @@
         </div>
     </div>
     
-    <!-- Модалка программы -->
     <div class="modal" id="modal-program">
         <div class="modal-content">
             <div class="modal-header">
@@ -275,7 +273,8 @@
                 <button class="close-btn" onclick="closeModal('modal-program')">×</button>
             </div>
             <div class="hint-box">
-                💡 Нажми на поле ниже, затем вставь текст программы (долгое нажатие → Вставить)
+                💡 Телефон: нажми на поле → долгое нажатие → Вставить<br>
+                💻 ПК: нажми кнопку ниже или Ctrl+V в поле
             </div>
             <label class="label">Текст программы</label>
             <textarea 
@@ -287,6 +286,7 @@
                 autocapitalize="off"
                 spellcheck="false"
             ></textarea>
+            <button class="btn btn-secondary" onclick="pasteFromClipboard()">📋 Вставить из буфера</button>
             <button class="btn btn-primary" onclick="parseProgram()">🤖 Распознать с ИИ</button>
         </div>
     </div>
@@ -296,7 +296,6 @@
         if (tg) { 
             tg.ready(); 
             tg.expand();
-            // Разрешаем вертикальные свайпы для скролла
             tg.enableClosingConfirmation();
         }
         
@@ -408,12 +407,21 @@
         function openProgramModal() {
             document.getElementById('input-program').value = '';
             openModal('modal-program');
-            // Фокус на textarea с задержкой
             setTimeout(() => {
-                const textarea = document.getElementById('input-program');
-                textarea.focus();
-                textarea.click();
+                document.getElementById('input-program').focus();
             }, 300);
+        }
+        
+        async function pasteFromClipboard() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text) {
+                    document.getElementById('input-program').value = text;
+                    tg?.HapticFeedback.impactOccurred('light');
+                }
+            } catch (e) {
+                alert('Не удалось вставить. Используй Ctrl+V в поле ввода.');
+            }
         }
         
         async function parseProgram() {
@@ -477,15 +485,6 @@
         function closeModal(id) { 
             document.getElementById(id).classList.remove('open'); 
         }
-        
-        // Обработка вставки для iOS
-        document.addEventListener('paste', function(e) {
-            const textarea = document.getElementById('input-program');
-            if (document.activeElement === textarea) {
-                // Разрешаем стандартную вставку
-                return true;
-            }
-        });
         
         init();
     </script>
