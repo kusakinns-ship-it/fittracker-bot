@@ -17,7 +17,6 @@
             --btn-text: var(--tg-theme-button-text-color, #ffffff);
             --green: #10b981;
             --red: #ef4444;
-            --orange: #f59e0b;
         }
         
         body {
@@ -75,16 +74,13 @@
             font-weight: 600;
             cursor: pointer;
             margin-bottom: 10px;
-            transition: opacity 0.2s;
         }
         .btn:active { opacity: 0.8; }
         .btn-primary { background: var(--btn); color: var(--btn-text); }
         .btn-secondary { background: var(--bg2); color: var(--text); }
-        .btn-danger { background: var(--red); color: white; }
-        .btn-success { background: var(--green); color: white; }
         .btn-small { padding: 10px 16px; width: auto; font-size: 14px; }
         
-        .input, .textarea, .editable {
+        .input {
             width: 100%;
             padding: 14px;
             border: none;
@@ -94,14 +90,8 @@
             font-size: 16px;
             margin-bottom: 12px;
         }
-        .textarea { min-height: 150px; resize: vertical; font-family: inherit; }
-        .editable { min-height: 150px; overflow-y: auto; white-space: pre-wrap; }
-        .editable:empty:before {
-            content: attr(data-placeholder);
-            color: var(--hint);
-        }
-        .input::placeholder, .textarea::placeholder { color: var(--hint); }
-        .input:focus, .textarea:focus, .editable:focus { outline: 2px solid var(--btn); }
+        .input::placeholder { color: var(--hint); }
+        .input:focus { outline: 2px solid var(--btn); }
         
         .label { font-size: 14px; color: var(--hint); margin-bottom: 6px; display: block; }
         
@@ -132,10 +122,7 @@
         }
         .tab.active { background: var(--btn); color: white; }
         
-        .day-card {
-            border-left: 3px solid var(--btn);
-            margin-bottom: 16px;
-        }
+        .day-card { border-left: 3px solid var(--btn); margin-bottom: 16px; }
         
         .exercise-item {
             display: flex;
@@ -176,8 +163,6 @@
             border-radius: 20px 20px 0 0;
             padding: 20px;
             padding-bottom: 40px;
-            max-height: 90vh;
-            overflow-y: auto;
         }
         .modal-header {
             display: flex;
@@ -197,29 +182,7 @@
             cursor: pointer;
         }
         
-        .rpe-row {
-            display: flex;
-            gap: 8px;
-            margin: 12px 0;
-        }
-        .rpe-btn {
-            flex: 1;
-            padding: 12px 8px;
-            border: none;
-            border-radius: 10px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .rpe-btn.selected { outline: 2px solid white; }
-        .rpe-6, .rpe-7 { background: rgba(16,185,129,0.2); color: var(--green); }
-        .rpe-8 { background: rgba(245,158,11,0.2); color: var(--orange); }
-        .rpe-9, .rpe-10 { background: rgba(239,68,68,0.2); color: var(--red); }
-        
-        .stat-row {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
+        .stat-row { display: flex; gap: 12px; margin-bottom: 16px; }
         .stat-card {
             flex: 1;
             background: var(--bg2);
@@ -230,11 +193,7 @@
         .stat-value { font-size: 24px; font-weight: bold; }
         .stat-label { font-size: 12px; color: var(--hint); margin-top: 4px; }
         
-        .loading {
-            display: flex;
-            justify-content: center;
-            padding: 40px;
-        }
+        .loading { display: flex; justify-content: center; padding: 40px; }
         .spinner {
             width: 32px;
             height: 32px;
@@ -244,34 +203,37 @@
             animation: spin 1s linear infinite;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .info-box {
+            background: rgba(59,130,246,0.1);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
-    <!-- Главная страница -->
     <div id="page-home" class="page active">
-        <div class="header">
-            <h1>🏋️ FitTracker</h1>
-        </div>
+        <div class="header"><h1>🏋️ FitTracker</h1></div>
         <div id="home-stats" class="stat-row"></div>
         <button class="btn btn-primary" onclick="openAddClient()">➕ Добавить клиента</button>
         <div id="clients-list"></div>
     </div>
     
-    <!-- Страница клиента -->
     <div id="page-client" class="page">
         <div class="header">
             <button class="back-btn" onclick="goHome()">←</button>
             <h1 id="client-name">Клиент</h1>
         </div>
         <div class="tabs">
-            <button class="tab active" onclick="switchClientTab('program')">Программа</button>
-            <button class="tab" onclick="switchClientTab('progress')">Прогресс</button>
-            <button class="tab" onclick="switchClientTab('metrics')">Замеры</button>
+            <button class="tab active" onclick="switchTab('program')">Программа</button>
+            <button class="tab" onclick="switchTab('progress')">Прогресс</button>
+            <button class="tab" onclick="switchTab('metrics')">Замеры</button>
         </div>
         <div id="client-content"></div>
     </div>
     
-    <!-- Модалка добавления клиента -->
     <div class="modal" id="modal-add-client">
         <div class="modal-content">
             <div class="modal-header">
@@ -282,27 +244,7 @@
             <input type="text" class="input" id="input-client-name" placeholder="Иван Петров">
             <label class="label">Цель</label>
             <input type="text" class="input" id="input-client-goal" placeholder="Набор массы, похудение...">
-            <label class="label">Заметки</label>
-            <textarea class="textarea" id="input-client-notes" placeholder="Травмы, ограничения, особенности..."></textarea>
             <button class="btn btn-primary" onclick="saveClient()">Сохранить</button>
-        </div>
-    </div>
-    
-    <!-- Модалка добавления программы -->
-    <div class="modal" id="modal-program-text">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span class="modal-title">Программа из текста</span>
-                <button class="close-btn" onclick="closeModal('modal-program-text')">×</button>
-            </div>
-            <label class="label">Вставьте текст программы</label>
-            <div 
-                id="input-program-text" 
-                class="editable" 
-                contenteditable="true"
-                data-placeholder="Вставьте сюда текст программы тренировок..."
-            ></div>
-            <button class="btn btn-primary" onclick="parseProgram()">🤖 Распознать с ИИ</button>
         </div>
     </div>
 
@@ -319,22 +261,15 @@
         
         async function init() {
             if (!tg?.initDataUnsafe?.user) {
-                document.getElementById('page-home').innerHTML = `
-                    <div class="empty">
-                        <div class="empty-icon">🔒</div>
-                        <p>Открой через Telegram бота</p>
-                    </div>`;
+                document.getElementById('page-home').innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><p>Открой через Telegram бота</p></div>';
                 return;
             }
-            
             try {
                 const res = await fetch(`${API}/user/${tg.initDataUnsafe.user.id}`);
                 currentUser = await res.json();
                 await loadClients();
                 renderHome();
-            } catch (e) {
-                console.error('Init error:', e);
-            }
+            } catch (e) { console.error(e); }
         }
         
         async function loadClients() {
@@ -342,19 +277,14 @@
             clients = await res.json();
         }
         
-        async function loadClientProgram(clientId) {
+        async function loadProgram(clientId) {
             const res = await fetch(`${API}/program/${clientId}`);
-            if (res.ok) {
-                currentProgram = await res.json();
-            } else {
-                currentProgram = null;
-            }
+            currentProgram = res.ok ? await res.json() : null;
         }
         
-        function showPage(pageId) {
+        function showPage(id) {
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
-            if (tg) tg.HapticFeedback.selectionChanged();
+            document.getElementById(id).classList.add('active');
         }
         
         function goHome() {
@@ -365,228 +295,123 @@
         
         function renderHome() {
             document.getElementById('home-stats').innerHTML = `
-                <div class="stat-card">
-                    <div class="stat-value">${clients.length}</div>
-                    <div class="stat-label">Клиентов</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value">0</div>
-                    <div class="stat-label">Тренировок</div>
-                </div>
-            `;
+                <div class="stat-card"><div class="stat-value">${clients.length}</div><div class="stat-label">Клиентов</div></div>
+                <div class="stat-card"><div class="stat-value">0</div><div class="stat-label">Тренировок</div></div>`;
             
-            if (clients.length === 0) {
-                document.getElementById('clients-list').innerHTML = `
-                    <div class="empty">
-                        <div class="empty-icon">👥</div>
-                        <p>Добавь первого клиента</p>
-                    </div>`;
-                return;
-            }
-            
-            document.getElementById('clients-list').innerHTML = clients.map(c => `
-                <div class="card card-clickable" onclick="openClient('${c.id}')">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div class="card-title">${c.client_name}</div>
-                            <div class="card-subtitle">${c.goal || 'Цель не указана'}</div>
+            document.getElementById('clients-list').innerHTML = clients.length === 0 
+                ? '<div class="empty"><div class="empty-icon">👥</div><p>Добавь первого клиента</p></div>'
+                : clients.map(c => `
+                    <div class="card card-clickable" onclick="openClient('${c.id}')">
+                        <div style="display:flex;justify-content:space-between;align-items:center">
+                            <div><div class="card-title">${c.client_name}</div><div class="card-subtitle">${c.goal || 'Цель не указана'}</div></div>
+                            <span style="color:var(--hint)">→</span>
                         </div>
-                        <span style="font-size: 20px; color: var(--hint);">→</span>
-                    </div>
-                </div>
-            `).join('');
+                    </div>`).join('');
         }
         
-        async function openClient(clientId) {
-            currentClient = clients.find(c => c.id === clientId);
+        async function openClient(id) {
+            currentClient = clients.find(c => c.id === id);
             if (!currentClient) return;
-            
             document.getElementById('client-name').textContent = currentClient.client_name;
             showPage('page-client');
-            
-            await loadClientProgram(clientId);
+            await loadProgram(id);
             currentTab = 'program';
-            renderClientPage();
+            renderClient();
         }
         
-        function switchClientTab(tab) {
+        function switchTab(tab) {
             currentTab = tab;
-            document.querySelectorAll('.tabs .tab').forEach((t, i) => {
-                t.classList.toggle('active', 
-                    (tab === 'program' && i === 0) ||
-                    (tab === 'progress' && i === 1) ||
-                    (tab === 'metrics' && i === 2)
-                );
-            });
-            renderClientPage();
-            if (tg) tg.HapticFeedback.selectionChanged();
+            document.querySelectorAll('.tabs .tab').forEach((t,i) => t.classList.toggle('active', 
+                (tab==='program'&&i===0)||(tab==='progress'&&i===1)||(tab==='metrics'&&i===2)));
+            renderClient();
         }
         
-        function renderClientPage() {
-            const content = document.getElementById('client-content');
-            
+        function renderClient() {
+            const el = document.getElementById('client-content');
             if (currentTab === 'program') {
-                renderProgramTab(content);
+                if (!currentProgram) {
+                    el.innerHTML = `
+                        <div class="empty"><div class="empty-icon">📝</div><p>Программа не создана</p></div>
+                        <div class="info-box">📋 Сначала скопируй текст программы, потом нажми кнопку ниже</div>
+                        <button class="btn btn-primary" onclick="pasteProgram()">📋 Вставить из буфера</button>`;
+                } else {
+                    let html = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                        <div><div style="font-weight:600">${currentProgram.name||'Программа'}</div>
+                        <div style="font-size:14px;color:var(--hint)">${currentProgram.days_per_week||'?'} дней/нед</div></div>
+                        <button class="btn btn-secondary btn-small" onclick="pasteProgram()">✏️</button></div>`;
+                    
+                    (currentProgram.days||[]).forEach((day,i) => {
+                        html += `<div class="card day-card"><div class="card-title">${day.name||'День '+(i+1)}</div>`;
+                        (day.exercises||[]).forEach((ex,j) => {
+                            html += `<div class="exercise-item"><div class="exercise-num">${j+1}</div>
+                                <div class="exercise-info"><div class="exercise-name">${ex.name}</div>
+                                <div class="exercise-params">${ex.weight?ex.weight+' кг × ':''}${ex.reps} × ${ex.sets}${ex.rest?' | Отдых: '+ex.rest:''}</div></div></div>`;
+                        });
+                        html += '</div>';
+                    });
+                    el.innerHTML = html;
+                }
             } else if (currentTab === 'progress') {
-                content.innerHTML = `
-                    <div class="empty">
-                        <div class="empty-icon">📊</div>
-                        <p>Графики прогресса</p>
-                        <p style="font-size: 14px; margin-top: 8px;">Появятся после первых тренировок</p>
-                    </div>`;
-            } else if (currentTab === 'metrics') {
-                content.innerHTML = `
-                    <button class="btn btn-primary" onclick="addMetric()">➕ Добавить замер</button>
-                    <div class="empty" style="padding-top: 20px;">
-                        <div class="empty-icon">📏</div>
-                        <p>Нет замеров</p>
-                    </div>`;
+                el.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><p>Появится после тренировок</p></div>';
+            } else {
+                el.innerHTML = '<button class="btn btn-primary" onclick="alert(\'Скоро\')">➕ Добавить замер</button><div class="empty"><div class="empty-icon">📏</div><p>Нет замеров</p></div>';
             }
         }
         
-        function renderProgramTab(content) {
-            if (!currentProgram) {
-                content.innerHTML = `
-                    <div class="empty">
-                        <div class="empty-icon">📝</div>
-                        <p>Программа не создана</p>
-                    </div>
-                    <button class="btn btn-primary" onclick="openModal('modal-program-text')">
-                        ✍️ Создать из текста
-                    </button>`;
-                return;
-            }
-            
-            let html = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                    <div>
-                        <div style="font-weight: 600;">${currentProgram.name || 'Программа'}</div>
-                        <div style="font-size: 14px; color: var(--hint);">
-                            ${currentProgram.days_per_week || '?'} дней/неделю
-                        </div>
-                    </div>
-                    <button class="btn btn-secondary btn-small" onclick="openModal('modal-program-text')">✏️</button>
-                </div>
-            `;
-            
-            if (currentProgram.days && currentProgram.days.length > 0) {
-                currentProgram.days.forEach((day, dayIndex) => {
-                    html += `
-                        <div class="card day-card">
-                            <div class="card-title">${day.name || 'День ' + (dayIndex + 1)}</div>
-                            ${day.exercises?.map((ex, exIndex) => `
-                                <div class="exercise-item">
-                                    <div class="exercise-num">${exIndex + 1}</div>
-                                    <div class="exercise-info">
-                                        <div class="exercise-name">${ex.name}</div>
-                                        <div class="exercise-params">
-                                            ${ex.weight ? ex.weight + ' кг × ' : ''}${ex.reps} × ${ex.sets}
-                                            ${ex.rest ? ' | Отдых: ' + ex.rest : ''}
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('') || '<div class="card-subtitle">Нет упражнений</div>'}
-                        </div>
-                    `;
+        async function pasteProgram() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text || text.length < 5) {
+                    tg?.showAlert('Сначала скопируй текст программы');
+                    return;
+                }
+                
+                document.getElementById('client-content').innerHTML = '<div class="loading"><div class="spinner"></div></div><p style="text-align:center;color:var(--hint)">ИИ анализирует...</p>';
+                
+                const res = await fetch(`${API}/parse-program`, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ client_id: currentClient.id, text })
                 });
+                
+                const data = await res.json();
+                if (data.error) throw new Error(data.error);
+                
+                currentProgram = data;
+                tg?.HapticFeedback.notificationOccurred('success');
+                renderClient();
+            } catch (e) {
+                console.error(e);
+                tg?.showAlert('Ошибка: ' + e.message);
+                renderClient();
             }
-            
-            content.innerHTML = html;
         }
         
         function openAddClient() {
             document.getElementById('input-client-name').value = '';
             document.getElementById('input-client-goal').value = '';
-            document.getElementById('input-client-notes').value = '';
             openModal('modal-add-client');
         }
         
         async function saveClient() {
             const name = document.getElementById('input-client-name').value.trim();
             const goal = document.getElementById('input-client-goal').value.trim();
-            const notes = document.getElementById('input-client-notes').value.trim();
+            if (!name) { tg?.showAlert('Введи имя'); return; }
             
-            if (!name) {
-                if (tg) tg.showAlert('Введи имя клиента');
-                return;
-            }
+            await fetch(`${API}/clients`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ trainer_id: currentUser.id, client_name: name, goal: goal||null })
+            });
             
-            try {
-                await fetch(`${API}/clients`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        trainer_id: currentUser.id,
-                        client_name: name,
-                        goal: goal || null,
-                        notes: notes || null
-                    })
-                });
-                
-                if (tg) tg.HapticFeedback.notificationOccurred('success');
-                closeModal('modal-add-client');
-                await loadClients();
-                renderHome();
-            } catch (e) {
-                console.error(e);
-                if (tg) tg.showAlert('Ошибка сохранения');
-            }
+            tg?.HapticFeedback.notificationOccurred('success');
+            closeModal('modal-add-client');
+            await loadClients();
+            renderHome();
         }
         
-        async function parseProgram() {
-            const textEl = document.getElementById('input-program-text');
-            const text = textEl.innerText.trim();
-            
-            if (!text) {
-                if (tg) tg.showAlert('Вставьте текст программы');
-                return;
-            }
-            
-            closeModal('modal-program-text');
-            textEl.innerText = '';
-            
-            document.getElementById('client-content').innerHTML = `
-                <div class="loading"><div class="spinner"></div></div>
-                <p style="text-align: center; color: var(--hint);">ИИ анализирует программу...</p>
-            `;
-            
-            try {
-                const res = await fetch(`${API}/parse-program`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        client_id: currentClient.id,
-                        text: text
-                    })
-                });
-                
-                const program = await res.json();
-                if (program.error) {
-                    throw new Error(program.error);
-                }
-                
-                currentProgram = program;
-                if (tg) tg.HapticFeedback.notificationOccurred('success');
-                renderClientPage();
-            } catch (e) {
-                console.error(e);
-                if (tg) tg.showAlert('Ошибка: ' + e.message);
-                renderClientPage();
-            }
-        }
-        
-        function openModal(id) {
-            document.getElementById(id).classList.add('open');
-            if (tg) tg.HapticFeedback.impactOccurred('light');
-        }
-        
-        function closeModal(id) {
-            document.getElementById(id).classList.remove('open');
-        }
-        
-        function addMetric() {
-            if (tg) tg.showAlert('Скоро будет доступно');
-        }
+        function openModal(id) { document.getElementById(id).classList.add('open'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('open'); }
         
         init();
     </script>
