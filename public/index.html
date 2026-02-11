@@ -2,107 +2,381 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>FitTracker</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: white;
+            background: var(--tg-theme-bg-color, #1a1a2e);
+            color: var(--tg-theme-text-color, #ffffff);
             min-height: 100vh;
+            padding: 16px;
+            padding-bottom: 100px;
+        }
+        
+        .header {
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
-            text-align: center;
+            margin-bottom: 24px;
         }
-        .logo {
-            font-size: 64px;
-            margin-bottom: 20px;
+        
+        .header h1 {
+            font-size: 24px;
         }
-        h1 {
-            font-size: 32px;
-            margin-bottom: 12px;
-        }
-        p {
-            color: #9ca3af;
-            margin-bottom: 32px;
-            max-width: 400px;
-        }
-        .btn {
-            display: inline-block;
-            background: #3b82f6;
-            color: white;
-            padding: 16px 32px;
-            border-radius: 12px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: transform 0.2s, background 0.2s;
-        }
-        .btn:hover {
-            background: #2563eb;
-            transform: scale(1.05);
-        }
-        .features {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-            margin-top: 48px;
-            max-width: 600px;
-        }
-        .feature {
-            background: rgba(255,255,255,0.05);
-            padding: 20px;
-            border-radius: 12px;
-        }
-        .feature-icon {
-            font-size: 32px;
-            margin-bottom: 12px;
-        }
-        .feature h3 {
+        
+        .stats {
             font-size: 14px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+        
+        .card {
+            background: var(--tg-theme-secondary-bg-color, rgba(255,255,255,0.05));
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
             margin-bottom: 4px;
         }
-        .feature p {
-            font-size: 12px;
-            margin: 0;
+        
+        .card-subtitle {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+        }
+        
+        .btn-primary {
+            background: var(--tg-theme-button-color, #3b82f6);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        
+        .btn-secondary {
+            background: var(--tg-theme-secondary-bg-color, rgba(255,255,255,0.1));
+            color: var(--tg-theme-text-color, #fff);
+        }
+        
+        .empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+        
+        .empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .client-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .client-info {
+            flex: 1;
+        }
+        
+        .client-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.1);
+            color: var(--tg-theme-text-color, #fff);
+            font-size: 18px;
+            cursor: pointer;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            z-index: 100;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        
+        .modal.open {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: var(--tg-theme-bg-color, #1a1a2e);
+            width: 100%;
+            max-width: 500px;
+            border-radius: 20px 20px 0 0;
+            padding: 20px;
+            padding-bottom: 40px;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--tg-theme-text-color, #fff);
+            font-size: 24px;
+            cursor: pointer;
+        }
+        
+        .input {
+            width: 100%;
+            padding: 14px 16px;
+            border: none;
+            border-radius: 12px;
+            background: var(--tg-theme-secondary-bg-color, rgba(255,255,255,0.1));
+            color: var(--tg-theme-text-color, #fff);
+            font-size: 16px;
+            margin-bottom: 12px;
+        }
+        
+        .input::placeholder {
+            color: var(--tg-theme-hint-color, #888);
+        }
+        
+        .input:focus {
+            outline: 2px solid var(--tg-theme-button-color, #3b82f6);
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: transparent;
+            color: var(--tg-theme-hint-color, #888);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        
+        .tab.active {
+            background: var(--tg-theme-button-color, #3b82f6);
+            color: #fff;
+        }
+        
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 200px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: var(--tg-theme-button-color, #3b82f6);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <div class="logo">🏋️</div>
-    <h1>FitTracker</h1>
-    <p>Персональный помощник для тренировок. Отслеживай прогресс, получай умные программы от ИИ.</p>
-    
-    <a href="https://t.me/fittracker_nk_bot" class="btn">Открыть в Telegram</a>
-    
-    <div class="features">
-        <div class="feature">
-            <div class="feature-icon">📊</div>
-            <h3>Трекинг</h3>
-            <p>Записывай каждый подход</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">🤖</div>
-            <h3>ИИ-тренер</h3>
-            <p>Умная прогрессия нагрузки</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">📈</div>
-            <h3>Аналитика</h3>
-            <p>Графики и статистика</p>
-        </div>
-        <div class="feature">
-            <div class="feature-icon">👥</div>
-            <h3>Для тренеров</h3>
-            <p>Веди клиентов</p>
+    <div id="app">
+        <div class="loading">
+            <div class="spinner"></div>
         </div>
     </div>
+
+    <script>
+        const tg = window.Telegram?.WebApp;
+        let currentUser = null;
+        let clients = [];
+        
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+        
+        const API = window.location.origin + '/api';
+        
+        async function init() {
+            if (!tg?.initDataUnsafe?.user) {
+                document.getElementById('app').innerHTML = `
+                    <div class="empty">
+                        <div class="empty-icon">🔒</div>
+                        <p>Открой через Telegram</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const telegramUser = tg.initDataUnsafe.user;
+            
+            try {
+                const res = await fetch(`${API}/user/${telegramUser.id}`);
+                currentUser = await res.json();
+                
+                await loadClients();
+                render();
+            } catch (e) {
+                console.error('Init error:', e);
+            }
+        }
+        
+        async function loadClients() {
+            if (!currentUser) return;
+            
+            const res = await fetch(`${API}/clients/${currentUser.id}`);
+            clients = await res.json();
+        }
+        
+        function render() {
+            const app = document.getElementById('app');
+            
+            app.innerHTML = `
+                <div class="header">
+                    <div>
+                        <h1>FitTracker</h1>
+                        <div class="stats">Клиентов: ${clients.length}</div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-primary" onclick="openAddClient()">
+                    ➕ Добавить клиента
+                </button>
+                
+                <div id="clients-list">
+                    ${clients.length === 0 ? `
+                        <div class="empty">
+                            <div class="empty-icon">👥</div>
+                            <p>Пока нет клиентов</p>
+                            <p style="margin-top: 8px; font-size: 14px;">Нажми кнопку выше, чтобы добавить первого</p>
+                        </div>
+                    ` : clients.map(client => `
+                        <div class="card client-card" onclick="openClient('${client.id}')">
+                            <div class="client-info">
+                                <div class="card-title">${client.client_name}</div>
+                                <div class="card-subtitle">
+                                    ${client.client_telegram_username ? '🔗 @' + client.client_telegram_username : 'Без доступа'}
+                                </div>
+                            </div>
+                            <div class="client-actions">
+                                <button class="icon-btn" onclick="event.stopPropagation(); openClient('${client.id}')">→</button>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <!-- Модалка добавления клиента -->
+                <div class="modal" id="add-modal">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <span class="modal-title">Новый клиент</span>
+                            <button class="close-btn" onclick="closeModal()">×</button>
+                        </div>
+                        <input type="text" class="input" id="client-name" placeholder="Имя клиента">
+                        <input type="text" class="input" id="client-notes" placeholder="Заметки (необязательно)">
+                        <button class="btn btn-primary" onclick="saveClient()">Сохранить</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function openAddClient() {
+            document.getElementById('add-modal').classList.add('open');
+            document.getElementById('client-name').focus();
+            if (tg) tg.HapticFeedback.impactOccurred('light');
+        }
+        
+        function closeModal() {
+            document.getElementById('add-modal').classList.remove('open');
+            document.getElementById('client-name').value = '';
+            document.getElementById('client-notes').value = '';
+        }
+        
+        async function saveClient() {
+            const name = document.getElementById('client-name').value.trim();
+            const notes = document.getElementById('client-notes').value.trim();
+            
+            if (!name) {
+                if (tg) tg.showAlert('Введи имя клиента');
+                return;
+            }
+            
+            try {
+                await fetch(`${API}/clients`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        trainer_id: currentUser.id,
+                        client_name: name,
+                        notes: notes || null
+                    })
+                });
+                
+                if (tg) tg.HapticFeedback.notificationOccurred('success');
+                closeModal();
+                await loadClients();
+                render();
+            } catch (e) {
+                console.error('Save error:', e);
+                if (tg) tg.showAlert('Ошибка сохранения');
+            }
+        }
+        
+        function openClient(clientId) {
+            const client = clients.find(c => c.id === clientId);
+            if (!client) return;
+            
+            if (tg) tg.HapticFeedback.selectionChanged();
+            
+            // Пока просто показываем алерт, потом сделаем полную страницу
+            if (tg) {
+                tg.showAlert(`Клиент: ${client.client_name}\n\nСкоро здесь будет управление программой!`);
+            }
+        }
+        
+        // Запуск
+        init();
+    </script>
 </body>
 </html>
