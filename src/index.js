@@ -106,7 +106,7 @@ app.post('/api/parse-program', async (req, res) => {
     
     try {
         const completion = await groq.chat.completions.create({
-            model: 'llama-3.1-70b-versatile',
+            model: 'llama-3.3-70b-versatile',
             messages: [
                 {
                     role: 'system',
